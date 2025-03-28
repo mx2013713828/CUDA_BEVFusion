@@ -274,12 +274,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export transfusion to onnx file")
     parser.add_argument("--ckpt", type=str, default="qat/ckpt/bevfusion_ptq.pth", help="Pretrain model")
     parser.add_argument('--fp16', action= 'store_true')
+    parser.add_argument('--lidar-only', action='store_true', help="Export lidar-only model")
     args = parser.parse_args()
+    
     model = torch.load(args.ckpt).module
     
-    suffix = "int8"
+    suffix = "fp16" if args.fp16 else "int8"
     if args.fp16:
-        suffix = "fp16"
         quantize.disable_quantization(model).apply()
     
     save_root = f"qat/onnx_{suffix}"
@@ -292,20 +293,36 @@ if __name__ == "__main__":
 
     TensorQuantizer.use_fb_fake_quant = True
     with torch.no_grad():
-        camera_features = torch.randn(1, 80, 180, 180).cuda()
-        lidar_features  = torch.randn(1, 256, 180, 180).cuda()
+        if args.lidar_only:
+            # Lidar-only模式
+            lidar_features = torch.randn(1, 256, 180, 180).cuda()
+            
+            fuser_onnx_path = f"{save_root}/fuser.lidar.onnx"
+            torch.onnx.export(fuser, [lidar_features], fuser_onnx_path, opset_version=13, 
+                input_names=["lidar"],
+                output_names=["middle"],
+            )
+            
+            head_onnx_path = f"{save_root}/head.bbox.lidar.onnx"
+        else:
+            # 融合模式
+            camera_features = torch.randn(1, 80, 180, 180).cuda()
+            lidar_features = torch.randn(1, 256, 180, 180).cuda()
 
-        fuser_onnx_path = f"{save_root}/fuser.onnx"
-        torch.onnx.export(fuser, [camera_features, lidar_features], fuser_onnx_path, opset_version=13, 
-            input_names=["camera", "lidar"],
-            output_names=["middle"],
-        )
-        print(f"🚀 The export is completed. ONNX save as {fuser_onnx_path} 🤗, Have a nice day~")
+            fuser_onnx_path = f"{save_root}/fuser.onnx"
+            torch.onnx.export(fuser, [camera_features, lidar_features], fuser_onnx_path, opset_version=13, 
+                input_names=["camera", "lidar"],
+                output_names=["middle"],
+            )
+            
+            head_onnx_path = f"{save_root}/head.bbox.onnx"
 
-        boxhead_onnx_path = f"{save_root}/head.bbox.onnx"
+        # 导出检测头（两种模式使用不同的保存路径但相同的导出逻辑）
         head_input = torch.randn(1, 512, 180, 180).cuda()
-        torch.onnx.export(headbbox, head_input, f"{save_root}/head.bbox.onnx", opset_version=13, 
+        torch.onnx.export(headbbox, head_input, head_onnx_path, opset_version=13, 
             input_names=["middle"],
             output_names=["score", "rot", "dim", "reg", "height", "vel"],
         )
-        print(f"🚀 The export is completed. ONNX save as {boxhead_onnx_path} 🤗, Have a nice day~")
+        
+        print(f"🚀 The export is completed. ONNX save as {fuser_onnx_path} 🤗")
+        print(f"🚀 The export is completed. ONNX save as {head_onnx_path} 🤗")

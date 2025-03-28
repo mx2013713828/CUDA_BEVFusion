@@ -24,7 +24,7 @@
 #include "bevfusion.hpp"
 
 #include <numeric>
-
+#include <iostream>
 #include "common/check.hpp"
 #include "common/timer.hpp"
 
@@ -44,6 +44,14 @@ class CoreImplement : public Core {
     lidar_scn_ = lidar::create_scn(param.lidar_scn);
     if (lidar_scn_ == nullptr) {
       printf("Failed to create lidar scn.\n");
+      return false;
+    }
+
+    // Transfusion模块在两种模式下都需要初始化
+    // fusion模式下作为特征融合，lidar模式下作为decoder
+    transfusion_ = fuser::create_transfusion(param.transfusion);
+    if (transfusion_ == nullptr) {
+      printf("Failed to create transfusion.\n");
       return false;
     }
 
@@ -90,12 +98,6 @@ class CoreImplement : public Core {
       camera_geometry_ = camera::create_geometry(param.geometry);
       if (camera_geometry_ == nullptr) {
         printf("Failed to create geometry.\n");
-        return false;
-      }
-
-      transfusion_ = fuser::create_transfusion(param.transfusion);
-      if (transfusion_ == nullptr) {
-        printf("Failed to create transfusion.\n");
         return false;
       }
     }
@@ -229,10 +231,15 @@ class CoreImplement : public Core {
     size_t bytes_points = num_points * param_.lidar_scn.voxelization.num_feature * sizeof(nvtype::half);
     checkRuntime(cudaMemcpyAsync(lidar_points_host_, lidar_points, bytes_points, cudaMemcpyHostToHost, _stream));
     checkRuntime(cudaMemcpyAsync(lidar_points_device_, lidar_points_host_, bytes_points, cudaMemcpyHostToDevice, _stream));
-
-    // 只使用点云特征进行检测
+    
+    // 1. 获取lidar特征
     const nvtype::half* lidar_feature = this->lidar_scn_->forward(lidar_points_device_, num_points, stream);
-    return this->transbbox_->forward(lidar_feature, 
+    
+    // 2. 使用transfusion作为decoder处理lidar特征
+    const nvtype::half* decoded_feature = this->transfusion_->forward(nullptr, lidar_feature, stream);
+    
+    // 3. 通过检测头进行预测
+    return this->transbbox_->forward(decoded_feature, 
                                    param_.transbbox.confidence_threshold,
                                    stream,
                                    param_.transbbox.sorted_bboxes);

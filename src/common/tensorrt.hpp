@@ -53,6 +53,7 @@ class Engine {
   virtual DType dtype(int ibinding) = 0;
   virtual bool has_dynamic_dim() = 0;
   virtual void print(const char *name = "TensorRT-Engine") = 0;
+  virtual bool hasBinding(const std::string& name) = 0;
 };
 
 std::shared_ptr<Engine> load(const std::string &file);

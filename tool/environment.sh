@@ -50,8 +50,9 @@ export CUDNN_Lib=/usr/lib/aarch64-linux-gnu
 export SPCONV_CUDA_VERSION=11.4
 
 # resnet50/resnet50int8/swint
-export DEBUG_MODEL=resnet50int8
-
+# export DEBUG_MODEL=resnet50int8
+# export DEBUG_MODEL=export_int8
+export DEBUG_MODEL=export_int8_qat_lidar
 # fp16/int8
 export DEBUG_PRECISION=int8
 export DEBUG_DATA=example-data

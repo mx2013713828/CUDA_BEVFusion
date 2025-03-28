@@ -232,7 +232,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   transbbox.post_center_range_start = {-61.2, -61.2, -10.0};
   transbbox.post_center_range_end = {61.2, 61.2, 10.0};
   transbbox.voxel_size = {0.075, 0.075};
-  transbbox.model = nv::format("model/%s/build/head.bbox.plan", model.c_str());
+  // transbbox.model = nv::format("model/%s/build/head.bbox.plan", model.c_str());
 
   // if you got an inaccurate boundingbox result please turn on the layernormplugin plan.
   // transbbox.model = nv::format("model/%s/build/head.bbox.layernormplugin.plan", model.c_str());
@@ -242,29 +242,31 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   bevfusion::CoreParameter param;
   param.normalize = normalization;
   param.lidar_scn = scn;
-  param.geometry = geometry;
-  param.transbbox = transbbox;
+  param.geometry = geometry; // 几何参数
+  param.transbbox = transbbox; 
   
   if (lidar_only) {
     param.run_mode = bevfusion::RunMode::LidarOnly;
     param.transbbox.input_type = bevfusion::head::transbbox::InputFeatureType::LidarOnly;
-    
-    // Lidar-only模式下使用专门的检测头模型
+  
+    // Lidar-only模式下使用专门的检测头模型和fusion模型
     param.transbbox.model = nv::format("model/%s/build/head.bbox.lidar.plan", model.c_str());
+    param.transfusion = nv::format("model/%s/build/fuser.lidar.plan", model.c_str());
   } else {
     param.camera_model = nv::format("model/%s/build/camera.backbone.plan", model.c_str());
     param.camera_vtransform = nv::format("model/%s/build/camera.vtransform.plan", model.c_str());
     param.transfusion = nv::format("model/%s/build/fuser.plan", model.c_str());
     param.transbbox.model = nv::format("model/%s/build/head.bbox.plan", model.c_str());
   }
-  
+  // 创建核心对象
   return bevfusion::create_core(param);
 }
-
+  
 int main(int argc, char** argv) {
 
   const char* data      = "example-data";
   const char* model     = "resnet50int8";
+  // const char* model     = "export_int8";
   const char* precision = "int8";
   bool lidar_only      = false;  // 默认使用fusion模式
 

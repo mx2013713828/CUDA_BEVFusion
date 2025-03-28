@@ -342,6 +342,10 @@ class EngineImplement : public Engine {
     }
     printf("------------------------------------------------------\n");
   }
+
+  virtual bool hasBinding(const std::string& name) override {
+    return binding_name_to_index_.find(name) != binding_name_to_index_.end();
+  }
 };
 
 std::shared_ptr<Engine> load(const std::string &file) {

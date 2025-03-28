@@ -29,6 +29,7 @@
 #include "common/check.hpp"
 #include "common/launch.cuh"
 #include "common/tensorrt.hpp"
+#include <iostream>
 #include "transfusion.hpp"
 
 namespace bevfusion {
@@ -53,6 +54,35 @@ class TransfusionImplement : public Transfusion {
       return false;
     }
 
+    bool has_camera = false;
+    try {
+      if (engine_->hasBinding(BindingCamera)) {
+        int idx = engine_->index(BindingCamera);
+        has_camera = true;
+      } else {
+        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine, use lidar only mode" << std::endl;
+        has_camera = false;
+      }
+    } catch (...) {
+      std::cerr << "Unknown error while checking camera binding" << std::endl;
+      has_camera = false;
+    }
+
+    if (has_camera) {
+      try {
+        int lidar_idx = engine_->index(BindingLidar);
+        int output_idx = engine_->index(BindingOutput);
+        
+        if (!engine_->is_input(lidar_idx) || engine_->is_input(output_idx)) {
+          printf("Invalid model bindings types.\n");
+          return false;
+        }
+      } catch (...) {
+        printf("Invalid model bindings.\n");
+        return false;
+      }
+    }
+
     auto shape = engine_->static_dims(BindingOutput);
     Asserts(engine_->dtype(BindingOutput) == TensorRT::DType::HALF, "Invalid binding data type.");
 
@@ -65,10 +95,31 @@ class TransfusionImplement : public Transfusion {
 
   virtual nvtype::half* forward(const nvtype::half* camera_bev, const nvtype::half* lidar_bev, void* stream) override {
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
-    engine_->forward({
-      {BindingCamera, camera_bev},
-      {BindingLidar, lidar_bev},
-      {BindingOutput, output_}}, _stream);
+    
+    bool has_camera = false;
+    try {
+      if (engine_->hasBinding(BindingCamera)) {
+        int idx = engine_->index(BindingCamera);
+        has_camera = true;
+      } else {
+        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine use lidar only mode" << std::endl;
+        has_camera = false;
+      }
+    } catch (...) {
+      std::cerr << "Unknown error while checking camera binding" << std::endl;
+      has_camera = false;
+    }
+    
+    if (has_camera) {
+      engine_->forward({
+        {BindingCamera, camera_bev},
+        {BindingLidar, lidar_bev},
+        {BindingOutput, output_}}, _stream);
+    } else {
+      engine_->forward({
+        {BindingLidar, lidar_bev},
+        {BindingOutput, output_}}, _stream);
+    }
     return output_;
   }
 
