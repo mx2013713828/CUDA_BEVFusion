@@ -273,8 +273,9 @@ def replace_layernorm(model):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export transfusion to onnx file")
     parser.add_argument("--ckpt", type=str, default="qat/ckpt/bevfusion_ptq.pth", help="Pretrain model")
+    parser.add_argument("--save_root", type=str, default="qat/onnx", help="fp16 or int8")
     parser.add_argument('--fp16', action= 'store_true')
-    parser.add_argument('--lidar-only', action='store_true', help="Export lidar-only model")
+    parser.add_argument('--lidar_only', action='store_true',default=False, help="Export lidar-only model")
     args = parser.parse_args()
     
     model = torch.load(args.ckpt).module
@@ -283,13 +284,14 @@ if __name__ == "__main__":
     if args.fp16:
         quantize.disable_quantization(model).apply()
     
-    save_root = f"qat/onnx_{suffix}"
+    # save_root = f"qat/onnx_{suffix}"
+    save_root = args.save_root
     os.makedirs(save_root, exist_ok=True)
-
+    
     model.eval()
     fuser    = SubclassFuser(model).cuda()
     headbbox = SubclassHeadBBox(model).cuda()
-    replace_layernorm(headbbox)
+    # replace_layernorm(headbbox) # 使用使用custom layernorm 来替换 layernorm
 
     TensorQuantizer.use_fb_fake_quant = True
     with torch.no_grad():

@@ -69,5 +69,5 @@ if __name__ == "__main__":
     voxels = torch.zeros(1, args.in_channel).cuda().half()
     coors  = torch.zeros(1, 4).int().cuda()
     batch_size = 1
-    
+    print(f"🚀 The export is completed. ONNX save as {args.save} 🤗")
     exptool.export_onnx(model, voxels, coors, batch_size, inverse_indices, args.save)

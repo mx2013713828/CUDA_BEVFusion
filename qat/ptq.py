@@ -73,13 +73,15 @@ def fuse_conv_bn(module):
 def load_model(cfg, checkpoint_path = None):
     model = build_model(cfg.model)
     if checkpoint_path != None:
+        print(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = load_checkpoint(model, checkpoint_path, map_location="cpu")
     return model
 
-def quantize_net(model):
-    quantize.quantize_encoders_lidar_branch(model.encoders.lidar.backbone)    
-    quantize.quantize_encoders_camera_branch(model.encoders.camera)
-    quantize.replace_to_quantization_module(model.fuser)
+def quantize_net(model, lidar_only=False):
+    quantize.quantize_encoders_lidar_branch(model.encoders.lidar.backbone)
+    if not lidar_only:
+        quantize.quantize_encoders_camera_branch(model.encoders.camera)
+        quantize.replace_to_quantization_module(model.fuser)
     quantize.quantize_decoder(model.decoder)
     model.encoders.lidar.backbone = funcs.layer_fusion_bn(model.encoders.lidar.backbone)
     return model
@@ -89,6 +91,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", metavar="FILE", default="bevfusion/configs/nuscenes/det/transfusion/secfpn/camera+lidar/resnet50/convfuser.yaml", help="config file")
     parser.add_argument("--ckpt", default="model/resnet50/bevfusion-det.pth", help="the checkpoint file to resume from")
+    parser.add_argument("--save_path", type=str, default="qat/ckpt/bevfusion_ptq.pth", help="save model path")
+    parser.add_argument("--lidar_only", action="store_true", default=False, help="only quantize lidar branch")
     parser.add_argument("--calibrate_batch", type=int, default=300, help="calibrate batch")
     args = parser.parse_args()
 
@@ -96,7 +100,8 @@ def main():
     configs.load(args.config, recursive=True)
     cfg = Config(recursive_eval(configs), filename=args.config)
 
-    save_path = 'qat/ckpt/bevfusion_ptq.pth'
+    # save_path = 'qat/ckpt/bevfusion_ptq.pth'
+    save_path = args.save_path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     # set random seeds
@@ -127,11 +132,11 @@ def main():
 
     #Create Model
     model = load_model(cfg, checkpoint_path = args.ckpt)
-    model = quantize_net(model)
+    model = quantize_net(model, args.lidar_only)
     model = fuse_conv_bn(model)
     model = MMDataParallel(model, device_ids=[0])
     model.eval()
-
+    
     ##Calibrate
     print("🔥 start calibrate 🔥 ")
     quantize.set_quantizer_fast(model)

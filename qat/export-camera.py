@@ -43,6 +43,7 @@ import lean.quantize as quantize
 def parse_args():
     parser = argparse.ArgumentParser(description="Export bevfusion model")
     parser.add_argument('--ckpt', type=str, default='qat/ckpt/bevfusion_ptq.pth')
+    parser.add_argument('--save_root', type=str, default='qat/onnx')
     parser.add_argument('--fp16', action= 'store_true')
     args = parser.parse_args()
     return args
@@ -100,7 +101,8 @@ def main():
     downsample_model.cuda().eval()
     downsample_in = torch.zeros(1, 80, 360, 360).cuda()
 
-    save_root = f"qat/onnx_{suffix}"
+    # save_root = f"qat/onnx_{suffix}"
+    save_root = args.save_root
     os.makedirs(save_root, exist_ok=True)
 
     with torch.no_grad():
