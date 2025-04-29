@@ -60,7 +60,7 @@ class TransfusionImplement : public Transfusion {
         int idx = engine_->index(BindingCamera);
         has_camera = true;
       } else {
-        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine, use lidar only mode" << std::endl;
+        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine , use lidar only mode" << std::endl;
         has_camera = false;
       }
     } catch (...) {
@@ -102,7 +102,7 @@ class TransfusionImplement : public Transfusion {
         int idx = engine_->index(BindingCamera);
         has_camera = true;
       } else {
-        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine use lidar only mode" << std::endl;
+        std::cout << "Warning: Camera binding '" << BindingCamera << "' not found in engine , use lidar only mode" << std::endl;
         has_camera = false;
       }
     } catch (...) {

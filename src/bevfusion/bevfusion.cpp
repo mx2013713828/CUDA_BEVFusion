@@ -229,20 +229,58 @@ class CoreImplement : public Core {
 
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
     size_t bytes_points = num_points * param_.lidar_scn.voxelization.num_feature * sizeof(nvtype::half);
-    checkRuntime(cudaMemcpyAsync(lidar_points_host_, lidar_points, bytes_points, cudaMemcpyHostToHost, _stream));
-    checkRuntime(cudaMemcpyAsync(lidar_points_device_, lidar_points_host_, bytes_points, cudaMemcpyHostToDevice, _stream));
     
-    // 1. 获取lidar特征
-    const nvtype::half* lidar_feature = this->lidar_scn_->forward(lidar_points_device_, num_points, stream);
-    
-    // 2. 使用transfusion作为decoder处理lidar特征
-    const nvtype::half* decoded_feature = this->transfusion_->forward(nullptr, lidar_feature, stream);
-    
-    // 3. 通过检测头进行预测
-    return this->transbbox_->forward(decoded_feature, 
-                                   param_.transbbox.confidence_threshold,
-                                   stream,
-                                   param_.transbbox.sorted_bboxes);
+    // 使用计时器版本
+    if (enable_timer_) {
+      printf("==================BEVFusion-LidarOnly===================\n");
+      std::vector<float> times;
+      timer_.start(_stream);
+
+      checkRuntime(cudaMemcpyAsync(lidar_points_host_, lidar_points, bytes_points, cudaMemcpyHostToHost, _stream));
+      checkRuntime(cudaMemcpyAsync(lidar_points_device_, lidar_points_host_, bytes_points, cudaMemcpyHostToDevice, _stream));
+      timer_.stop("[NoSt] CopyLidar");
+      
+      // 1. 获取lidar特征
+      timer_.start(_stream);
+      const nvtype::half* lidar_feature = this->lidar_scn_->forward(lidar_points_device_, num_points, stream);
+      times.emplace_back(timer_.stop("Lidar Backbone"));
+      
+      // 2. 使用transfusion作为decoder处理lidar特征
+      timer_.start(_stream);
+      const nvtype::half* decoded_feature = this->transfusion_->forward(nullptr, lidar_feature, stream);
+      times.emplace_back(timer_.stop("Transfusion Decoder"));
+      
+      // 3. 通过检测头进行预测
+      timer_.start(_stream);
+      auto output = this->transbbox_->forward(decoded_feature, 
+                                    param_.transbbox.confidence_threshold,
+                                    stream,
+                                    param_.transbbox.sorted_bboxes);
+      times.emplace_back(timer_.stop("Head BoundingBox"));
+
+      float total_time = std::accumulate(times.begin(), times.end(), 0.0f, std::plus<float>{});
+      printf("Total: %.3f ms\n", total_time);
+      printf("=====================================================\n");
+      
+      return output;
+    } 
+    // 不使用计时器的版本
+    else {
+      checkRuntime(cudaMemcpyAsync(lidar_points_host_, lidar_points, bytes_points, cudaMemcpyHostToHost, _stream));
+      checkRuntime(cudaMemcpyAsync(lidar_points_device_, lidar_points_host_, bytes_points, cudaMemcpyHostToDevice, _stream));
+      
+      // 1. 获取lidar特征
+      const nvtype::half* lidar_feature = this->lidar_scn_->forward(lidar_points_device_, num_points, stream);
+      
+      // 2. 使用transfusion作为decoder处理lidar特征
+      const nvtype::half* decoded_feature = this->transfusion_->forward(nullptr, lidar_feature, stream);
+      
+      // 3. 通过检测头进行预测
+      return this->transbbox_->forward(decoded_feature, 
+                                    param_.transbbox.confidence_threshold,
+                                    stream,
+                                    param_.transbbox.sorted_bboxes);
+    }
   }
 
   virtual std::vector<head::transbbox::BoundingBox> forward(

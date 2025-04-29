@@ -183,6 +183,10 @@ typedef struct {
   half val[5];
 } half5;
 
+typedef struct {
+  half val[4];
+} half4;
+
 template <typename _T>
 static __host__ __device__ _T limit(_T value, _T amin, _T amax) {
   return value < amin ? amin : (value > amax ? amax : value);

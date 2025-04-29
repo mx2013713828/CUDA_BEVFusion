@@ -52,11 +52,13 @@ export SPCONV_CUDA_VERSION=11.4
 # resnet50/resnet50int8/swint
 # export DEBUG_MODEL=resnet50int8
 # export DEBUG_MODEL=export_int8
-export DEBUG_MODEL=export_int8_qat_lidar
+export DEBUG_MODEL=export_int8_qat_custom_feat5_lidar
 # fp16/int8
 export DEBUG_PRECISION=int8
 export DEBUG_DATA=example-data
 export USE_Python=OFF
+export DEBUG_MODE=lidar
+# export DEBUG_MODE=fusion
 
 # check the configuration path
 # clean the configuration status

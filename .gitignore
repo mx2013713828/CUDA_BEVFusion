@@ -2,6 +2,7 @@
 /data/nuscenes
 /data/nusc_tensor
 /data/prediction
+/data/*
 *.pyc
 __pycache__
 *.plan
